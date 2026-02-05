@@ -1,0 +1,52 @@
+volumes:
+  app_vol:
+    name: app_vol 
+
+services:
+  postgres_db:
+    container_name: app_db
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: app_data
+    volumes:
+      - app_vol:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "admin", "-d", "app_data"]
+      interval: 10s
+      retries: 5
+    restart: unless-stopped
+
+  app_backend:
+    build:
+      context: ./backend 
+      dockerfile: dockerfile
+    image: app_backend
+    environment:
+      DATABASE_URL: "postgresql://admin:secret@app_db/app_data"
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    cap_drop:
+      - ALL
+    expose:
+      - 8000
+    entrypoint: ["uvicorn"]
+    command: [ "app.main:app", "--host", "0.0.0.0", "--port", "8000" ]
+
+  app_frontend:
+    container_name: app_frontend 
+    build:
+      context: ./frontend 
+      args:
+        VITE_API_URL: "/api"
+    volumes:
+      - /etc/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - app_backend
+    ports:
+      - 80:8080
+      - 443:8443
+    entrypoint: ["nginx"]
+    command: ["-g", "daemon off;"]
