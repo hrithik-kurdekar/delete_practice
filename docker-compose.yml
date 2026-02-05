@@ -19,10 +19,7 @@ services:
     restart: unless-stopped
 
   app_backend:
-    build:
-      context: ./backend 
-      dockerfile: dockerfile
-    image: app_backend
+    image: ${DOCKERHUB_USER}/app_backend
     environment:
       DATABASE_URL: "postgresql://admin:secret@app_db/app_data"
     depends_on:
@@ -37,10 +34,7 @@ services:
 
   app_frontend:
     container_name: app_frontend 
-    build:
-      context: ./frontend 
-      args:
-        VITE_API_URL: "/api"
+    image: ${DOCKERHUB_USER}/app_frontend
     volumes:
       - /etc/nginx/certs:/etc/nginx/certs:ro
     depends_on:

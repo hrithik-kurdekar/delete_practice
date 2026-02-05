@@ -1,0 +1,13 @@
+services:
+  app_backend:
+    build:
+      context: ./backend 
+      dockerfile: dockerfile
+    image: app_backend
+
+  app_frontend:
+    build:
+      context: ./frontend 
+      args:
+        VITE_API_URL: "/api"
+    image: app_frontend
