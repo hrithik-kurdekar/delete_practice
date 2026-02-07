@@ -177,7 +177,7 @@ jobs:
       - name: Building Docker Images
         env:
           DOCKERHUB_USER: ${{secrets.DOCKERHUB_USER}}
-        run: docker-compose build ${{matrix.service_name}}
+        run: docker compose build ${{matrix.service_name}}
 
       - name: Running Trivy Scan
         run: >
@@ -221,7 +221,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Deploying Application
-        run: docker-compose up -d
+        run: docker compose up -d
 
 
       
