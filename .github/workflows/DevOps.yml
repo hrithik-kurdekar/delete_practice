@@ -55,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Pytest Report
-          path: ./backend/pytest_report.txt
+          path: ./backend/pytest_report.xml
 
   PYLINT_SCAN:
     runs-on: ubuntu-latest
@@ -136,7 +136,7 @@ jobs:
           docker run
           --rm
           -v ${{github.workspace}}:/workspace
-          aquasec/trivy /workspace/${{matrix.app_type}}
+          aquasec/trivy fs /workspace/${{matrix.app_type}}
           --severity HIGH,CRITICAL
           --no-progress
           --output /workspace/trivy_${{matrix.app_type}}_report.txt
