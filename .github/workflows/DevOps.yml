@@ -1,0 +1,60 @@
+name: DevOps Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  Running_Test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    services:
+      postgres:
+        image: postgres-16
+        environment:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: app_data
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U admin -d app_data"
+          --health-interval 10s
+          --health-retries 5
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: backend/
+          sparse-checkout-cone-mode: false
+
+      - name: Setting Up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+          cache: 'pip'
+
+      - name: Testing Code
+        working-directory: ./backend
+        env:
+          DATABASE_URL: "postgresql://admin:secret@localhost:5432/app_data"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt 
+          python -m pytest --maxfail=1 --junitxml=pytest_report.xml
+
+      - name: Uploading Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pytest Report
+          path: ./backend/pytest_report.xml
+
+        
+        
+        
