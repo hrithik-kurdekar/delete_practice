@@ -2,12 +2,14 @@ name: DevOps Pipeline
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
-  Running_Test:
+  TEST:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,23 +26,22 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U admin -d app_data"
           --health-interval 10s
-          --health-timeout 5s
           --health-retries 5
+          --health-timeout 10s
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          sparse-checkout: |
-            backend/**
+          sparse-checkout: backend/**
           sparse-checkout-cone-mode: false
 
       - name: Setting Up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: 3.11
           cache: 'pip'
 
-      - name: Testing Code
+      - name: Running Tests
         working-directory: ./backend
         env:
           DATABASE_URL: "postgresql://admin:secret@localhost:5432/app_data"
@@ -49,9 +50,10 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           python -m pytest --maxfail=1 --junitxml=pytest_report.xml
 
-      - name: Uploading Artifact
+      - name: Uplaoding Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Pytest-Report
-          path: backend/pytest_report.xml
+          name: Pytest Report
+          path: ./backend/pytest_report.xml
+          
