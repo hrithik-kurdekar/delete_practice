@@ -55,5 +55,174 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Pytest Report
-          path: ./backend/pytest_report.xml
+          path: ./backend/pytest_report.txt
+
+  PYLINT_SCAN:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    needs: [TEST]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: backend/**
+          sparse-checkout-cone-mode: false
+
+      - name: Running Pylint Scan
+        run: >
+          docker run
+          --rm
+          -v ${{github.workspace}}:/workspace
+          cytopia/pylint /workspace/backend/app
+          | tee pylint_report.txt
+          || true
+
+      - name: Uplaoding Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pylint Report
+          path: pylint_report.txt
+
+  FLAKE8_SCAN:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    needs: [TEST]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: backend/**
+          sparse-checkout-cone-mode: false
+
+      - name: Running Pylint Scan
+        run: >
+          docker run
+          --rm
+          -v ${{github.workspace}}:/workspace
+          alpine/flake8 /workspace/backend/app
+          | tee flake8_report.txt
+          || true
+
+      - name: Uplaoding Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Flake8 Report
+          path: flake8_report.txt
+
+  TRIVY_SCAN:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    needs: [TEST]
+    strategy:
+      matrix:
+        app_type: [backend, frontend]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: ${{matrix.app_type}}/**
+          sparse-checkout-cone-mode: false
+
+      - name: Running Trivy Scan
+        run: >
+          docker run
+          --rm
+          -v ${{github.workspace}}:/workspace
+          aquasec/trivy /workspace/${{matrix.app_type}}
+          --severity HIGH,CRITICAL
+          --no-progress
+          --output /workspace/trivy_${{matrix.app_type}}_report.txt
+          || true
+
+      - name: Uplaoding Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Trivy ${{matrix.app_type}} Report
+          path: trivy_${{matrix.app_type}}_report.txt
+
+  IMAGE_BUILD_SCAN_PUSH:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    needs: [PYLINT_SCAN, FLAKE8_SCAN, TRIVY_SCAN]
+    strategy:
+      matrix:
+        app_type: [backend, frontend]
+        service_name: [app_backend, app_frontend]
+        exclude:
+          - app_type: backend
+            service_name: app_frontend
+          - app_type: frontend
+            service_name: app_backend
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            ${{matrix.app_type}}/**
+            docker-compose.override.yml
+            docker-compose.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Building Docker Images
+        env:
+          DOCKERHUB_USER: ${{secrets.DOCKERHUB_USER}}
+        run: docker-compose build ${{matrix.service_name}}
+
+      - name: Running Trivy Scan
+        run: >
+          docker run
+          --rm
+          -v ${{github.workspace}}:/workspace
+          -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy image ${{secrets.DOCKERHUB_USER}}/${{matrix.service_name}}
+          --severity HIGH,CRITICAL
+          --no-progress
+          --output /workspace/trivy_image_${{matrix.service_name}}_report.txt
+          || true
+
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{secrets.DOCKERHUB_USER}}
+          password: ${{secrets.DOCKERHUB_TOKEN}}
+
+      - name: Pushing Images to Docker
+        run: docker push ${{secrets.DOCKERHUB_USER}}/${{matrix.service_name}}
+
+      - name: Uplaoding Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Trivy Image ${{matrix.service_name}} Report
+          path: trivy_image_${{matrix.service_name}}_report.txt
+
+  DEPLOY:
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash
+    needs: [IMAGE_BUILD_SCAN_PUSH]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: docker-compose.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Deploying Application
+        run: docker-compose up -d
+
+
+      
           
