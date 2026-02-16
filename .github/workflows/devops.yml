@@ -128,11 +128,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          sparse-checkout: ${{matrix.type}}/**
-          sparse-checkout-cone-mode: false
 
-      - name: Running Pylint Scan
+      - name: Running Trivy Scan
         run: >
           docker run
           --rm
