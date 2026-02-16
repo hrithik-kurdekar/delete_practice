@@ -1,0 +1,6 @@
+services:
+  app_backend:
+    image: app_backend
+
+  app_frontend:
+    image: app_frontend
