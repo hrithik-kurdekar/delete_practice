@@ -56,5 +56,96 @@ jobs:
         with:
           name: Pytest Report
           path: ./backend/test_report.xml
+
+  Pylint_Scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    needs: [TEST]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: backend/**
+          sparse-checkout-cone-mode: false
+
+      - name: Running Pylint Scan
+        run: >
+          docker run
+          --rm
+          -v ${{github.workspace}}:/workspace
+          cytopia/pylint
+          /workspace/backend/app
+          | tee pylint_report.txt
+          || true
+
+      - name: Uploading Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pylint Report
+          path: pylint_report.txt
+
+  Flake8_Scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    needs: [TEST]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: backend/**
+          sparse-checkout-cone-mode: false
+
+      - name: Running Pylint Scan
+        run: >
+          docker run
+          --rm
+          -v ${{github.workspace}}:/workspace
+          alpine/flake8 /workspace/backend/app
+          | tee flake8_report.txt
+          || true
+
+      - name: Uploading Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Flake8 Report
+          path: flake8_report.txt
+      
+  Trivy_Scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      matrix:
+        type: [backend, frontend]
+    needs: [TEST]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: ${{matrix.type}}/**
+          sparse-checkout-cone-mode: false
+
+      - name: Running Pylint Scan
+        run: >
+          docker run
+          --rm
+          -v ${{github.workspace}}:/workspace
+          aquasec/trivy fs /workspace/${{matrix.type}}
+          --severity HIGH,CRITICAL --no-progress --output /workspace/trivy_${{matrix.type}}_report.txt
+          || true
+
+      - name: Uploading Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Trivy ${{matrix.type}} Report
+          path: trivy_${{matrix.type}}_report.txt
           
         
